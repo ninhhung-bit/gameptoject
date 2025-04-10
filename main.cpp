@@ -1,12 +1,3 @@
-/*
-1. ban đầu có một mảng 2 chiều 4*4, chứa các số từ 1 đến 4
-2. những vị trí 0 là tượng trung cho chỗ trống
-3. người chơi sẽ thay thế các vị trí có số 0 bằng các số trong khoảng từ (1 đến 4)
-4. yêu cầu là các hàng và các cột có số không trùng lặp , và trong bốn ô kích thước
-2*2 ở bốn góc cũng có số không trùng lặp
-5. phiên bản hiện tại (4*4), bản khó hơn sẽ là (9*9)
-*/
-
 
 #include <iostream>
 #include<cstdlib>
