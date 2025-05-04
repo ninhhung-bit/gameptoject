@@ -1,140 +1,143 @@
-#include <iostream>
-#include<cstdlib>
-#include<algorithm>
-#include<ctime>
+#include <SDL.h>
+#include<iostream>
+#include <SDL_ttf.h>
+#include <vector>
+#include <string>
+#include "sudoku.h"
+#include "cell.h"
+#include "ui.h"
 
-using namespace std;
+const int SCREEN_WIDTH = 400;
+const int SCREEN_HEIGHT = 500;
 
-const int SIZE = 4;
-int baseBoard[SIZE][SIZE] = {
-    {1, 2, 3, 4},
-    {3, 4, 1, 2},
-    {2, 1, 4, 3},
-    {4, 3, 2, 1}
-};
-int fullBoard[4][4];
-int board[4][4];
+SDL_Window* window = nullptr;
 
-void ngaunhienBoard( int board[4][4]){
+std::vector<Cell> gridCells;
+std::vector<Cell> numberChoices;
+std::vector<std::vector<int>> solution;
+std::vector<std::vector<int>> currentBoard;
 
-    for(int i=0;i<4;i+=2){
-        if(rand()%2) swap(board[i],board[i+1]);
+void initBoard() {
+    solution = generateCompleteBoard();
+    currentBoard = solution;
+    removeRandomCells(currentBoard, 6);
+
+    gridCells.clear();
+    int cellSize = 80;
+    for (int i = 0; i < 4; ++i)
+        for (int j = 0; j < 4; ++j) {
+            Cell cell;
+            cell.row = i;
+            cell.col = j;
+            cell.value = currentBoard[i][j];
+            cell.fixed = (cell.value != 0);
+            cell.rect = { j * cellSize + 40, i * cellSize + 100, cellSize - 5, cellSize - 5 };
+            gridCells.push_back(cell);
+        }
+
+    numberChoices.clear();
+    for (int i = 1; i <= 4; ++i) {
+        Cell ch;
+        ch.value = i;
+        ch.fixed = true;
+        ch.rect = { i * 80 - 50, 20, 50, 50 };
+        numberChoices.push_back(ch);
     }
+}
 
-    for (int j = 0; j < 4; j += 2) {
-        if (rand() % 2) {
-            for (int i = 0; i < 4; i++) {
-                swap(board[i][j], board[i][j+1]);
+int main(int argc, char* argv[]) {
+    SDL_Init(SDL_INIT_VIDEO);
+    TTF_Init();
+
+    window = SDL_CreateWindow("Sudoku 4x4 SDL2", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH, SCREEN_HEIGHT, 0);
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    ::renderer = renderer;
+    font = TTF_OpenFont("Roboto-Regular", 24);
+    ::font = font;
+
+    initBoard();
+
+    bool running = true;
+    bool dragging = false;
+    int draggingValue = 0;
+    SDL_Point mousePos;
+
+    while (running) {
+        SDL_Event e;
+        while (SDL_PollEvent(&e)) {
+            switch (e.type) {
+                case SDL_QUIT: running = false; break;
+                case SDL_MOUSEBUTTONDOWN:
+                    mousePos.x = e.button.x;
+                    mousePos.y = e.button.y;
+                    for (auto& ch : numberChoices) {
+                        if (SDL_PointInRect(&mousePos, &ch.rect)) {
+                            dragging = true;
+                            draggingValue = ch.value;
+                        }
+                    }
+                    break;
+                case SDL_MOUSEBUTTONUP:
+                    if (dragging) {
+                        for (auto& cell : gridCells) {
+                            if (!cell.fixed && SDL_PointInRect(&mousePos, &cell.rect)) {
+                                cell.value = draggingValue;
+                                currentBoard[cell.row][cell.col] = draggingValue;
+                                break;
+                            }
+                        }
+                        dragging = false;
+                        draggingValue = 0;
+                    }
+
+                    // Check button zone
+                    if (mousePos.y > 440 && mousePos.x > 40 && mousePos.x < 160) {
+                        if (isBoardSolvedCorrectly(currentBoard)) SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_INFORMATION, "you winn!!", ":33 đúng rồi đoáa!", window);
+                        else SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Oopps!", "Sai rùi bạn eiii :((", window);
+                    }
+
+                    if (mousePos.y > 440 && mousePos.x > 220 && mousePos.x < 360) {
+                        initBoard(); // restart
+                    }
+
+                    break;
+                case SDL_MOUSEMOTION:
+                    mousePos.x = e.motion.x;
+                    mousePos.y = e.motion.y;
+                    break;
             }
         }
+
+
+        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+        SDL_RenderClear(renderer);
+        drawBoard(gridCells, numberChoices, draggingValue, mousePos, dragging);
+
+
+        SDL_Rect checkBtn = { 40, 440, 120, 40 };
+        SDL_SetRenderDrawColor(renderer, 200, 255, 200, 255);
+        SDL_RenderFillRect(renderer, &checkBtn);
+        drawText("Kiểm Tra", checkBtn, {0, 0, 0});
+
+
+        SDL_Rect resetBtn = { 220, 440, 120, 40 };
+        SDL_SetRenderDrawColor(renderer, 255, 200, 200, 255);
+        SDL_RenderFillRect(renderer, &resetBtn);
+        drawText("Chơi Lạii", resetBtn, {0, 0, 0});
+
+
+        SDL_Rect testRect = { 10, 10, 50, 30 };
+        SDL_Color testColor = { 255, 0, 0, 255 };
+        drawText("Test", testRect, testColor);
+
+
+        SDL_RenderPresent(renderer);
+        SDL_Delay(16);
     }
-    int map[5]={0,1,2,3,4};
-    random_shuffle(map+1,map+5);
-    for(int i=0;i<4;i++){
-        for(int j=0;j<4;j++)
-        {
-            board[i][j]= map[board[i][j]];
-        }
-    }
-}
 
-void anchuso( int src[4][4], int dst[4][4], int blanks=6){
-
-    for(int i=0;i<4;i++)
-    {
-        for(int j=0;j<4;j++)
-        {
-            dst[i][j]=src[i][j];
-        }
-    }
-
-    while (blanks>0){
-        int r=rand()% 4;
-        int c=rand()% 4;
-        if(dst[r][c] !=0 ){
-            dst[r][c]=0;
-            blanks--;
-        }
-    }
-}
-
-void printBoard() {
-    system("cls");
-
-    for (int i = 0; i < SIZE; i++) {
-        for (int j = 0; j < SIZE; j++) {
-            if (board[i][j] == 0)
-                cout << ". ";
-            else
-                cout << board[i][j] << " ";
-        }
-        cout << endl;
-    }
-}
-
-
-bool isValid(int row, int col, int num) {
-
-    for (int i = 0; i < SIZE; i++)
-        if (board[row][i] == num) return false;
-
-    for (int i = 0; i < SIZE; i++)
-        if (board[i][col] == num) return false;
-
-    int startRow = (row / 2) * 2;
-    int startCol = (col / 2) * 2;
-    for (int i = 0; i < 2; i++)
-        for (int j = 0; j < 2; j++)
-            if (board[startRow + i][startCol + j] == num) return false;
-
-    return true;
-}
-
-void playerMove()
- {
-    int row, col, num;
-    cout << "nhap hang (1-4), cot (1-4), so (1-4): ";
-    cin >> row >> col >> num;
-
-    if (row >= 1 && row < SIZE+1 && col >= 1 && col < SIZE+1 && board[row-1][col-1] == 0)
-    {
-        if (isValid(row-1, col-1, num))
-          {
-            board[row-1][col-1] = num;
-          } else{
-            cout << "so khong hop le"<<endl;
-
-          }
-    } else{
-        cout << "o nay khong the thay doi!"<< endl;
-
-      }
-}
-
-bool isGameWon()
-{
-    for (int i = 0; i < SIZE; i++)
-        for (int j = 0; j < SIZE; j++)
-            if (board[i][j] == 0) return false;
-    return true;
-}
-
-int main()
-{
-    srand(time (0));
-
-    memcpy(fullBoard, baseBoard, sizeof(baseBoard));
-    ngaunhienBoard(fullBoard);
-    anchuso(fullBoard, board,6);
-
-    while(!isGameWon())
-    {
-        printBoard();
-        playerMove();
-
-    }
-    cout<< "Chuc mungg bann!!"<<endl;
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    TTF_Quit();
+    SDL_Quit();
     return 0;
 }
-
-

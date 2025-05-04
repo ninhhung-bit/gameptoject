@@ -1,0 +1,9 @@
+# depslib dependency file v1.0
+1746334260 source:c:\codeblock\sudokuuu\sudoku.cpp
+	"sudoku.h"
+	<algorithm>
+	<random>
+
+1746334260 c:\codeblock\sudokuuu\sudoku.h
+	<vector>
+
